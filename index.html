@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Jody's Pizza - Pizza Loop</title>
+<style>
+  :root{--gold:#f2c45c;--red:#8d241b;--ink:#120d09;--green:#63e58a}
+  *{box-sizing:border-box} html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#050403;color:#fff;font-family:Arial,Helvetica,sans-serif}
+  body{display:grid;place-items:center}
+  #game{position:relative;width:min(100vw,177.7778vh);aspect-ratio:16/9;background:#000;overflow:hidden;user-select:none;touch-action:none}
+  .layer{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none}
+  #background{z-index:0}
+  #customer,#orderBubble,#orderCheese{z-index:8}
+  #walkinsTab,#moneyTab{z-index:15}
+  #counterFront{z-index:12}
+  #crust,#sauced,#cheeseLayer,#rawPizza,#spoon,#ovenOpen,#pizzaOvenOpen,#pizzaOvenClosed,#finished,#burnt,#openBox,#closedBox{z-index:20}
+  #customer{transform:translateX(38%);opacity:0;transition:transform 1s ease,opacity .4s ease}
+  #customer.in{transform:translateX(0);opacity:1}
+  #customer.out{transform:translateX(42%);opacity:0}
+  #closedBox.delivering{animation:boxToCustomer 1.15s ease-in forwards}
+  .hidden{display:none!important}
+  #hud{position:absolute;z-index:40;left:2.3%;right:2.3%;top:2.2%;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;pointer-events:none}
+  .panel{background:rgba(16,11,8,.9);border:1px solid #825d37;border-radius:10px;padding:.55rem .8rem;box-shadow:0 6px 18px #0009;font-weight:800;letter-spacing:.02em}
+  #money{color:var(--green);font-size:clamp(14px,1.4vw,27px)}
+  #timer{display:none}
+  #circleTimer{position:absolute;z-index:58;width:clamp(38px,3.8vw,68px);aspect-ratio:1;border-radius:50%;display:grid;place-items:center;background:conic-gradient(#f2c45c 0deg,#2a1a11 0deg);box-shadow:0 0 0 5px rgba(10,7,5,.8),0 5px 18px #000c;pointer-events:none;transform:translate(-50%,-50%)}
+  #circleTimer::before{content:'';position:absolute;inset:7px;border-radius:50%;background:rgba(18,13,9,.94);border:2px solid #8c643c}
+  #circleTimerText{position:relative;z-index:1;color:#ffe079;font-weight:900;font-size:clamp(9px,.82vw,15px);text-align:center;line-height:1.05;text-shadow:0 2px 3px #000}
+  #message{position:absolute;z-index:40;left:50%;bottom:2.5%;transform:translateX(-50%);width:min(76%,850px);text-align:center;background:rgba(17,12,9,.92);border:1px solid #8c643c;border-radius:12px;padding:.7rem 1rem;font-weight:900;font-size:clamp(13px,1.2vw,23px);pointer-events:none;box-shadow:0 8px 24px #000b}
+  #message small{display:block;color:#d3bd96;margin-top:.25rem;font-weight:600}
+  .hotspot{position:absolute;z-index:50;border:0;background:transparent;box-shadow:none;cursor:pointer;padding:0}
+  .hotspot:after{display:none}
+  #spoon.saucing{animation:spoonCircle .75s linear infinite;transform-origin:61% 55%}
+  #openBox{z-index:22}
+  #finished{z-index:24}
+  #finished.toBox{animation:pizzaToBox .9s ease-out forwards}
+  @keyframes spoonCircle{0%{transform:translate(0,0) rotate(0deg)}25%{transform:translate(8px,-5px) rotate(5deg)}50%{transform:translate(0,-10px) rotate(0deg)}75%{transform:translate(-8px,-5px) rotate(-5deg)}100%{transform:translate(0,0) rotate(0deg)}}
+  @keyframes pizzaToBox{0%{transform:translateY(-24%) scale(.86);opacity:.35}70%{transform:translateY(-5%) scale(.96);opacity:1}100%{transform:translateY(0) scale(1);opacity:1}}
+  @keyframes boxToCustomer{0%{transform:translate(0,0) scale(1);opacity:1}70%{transform:translate(-17%,-12%) scale(.82);opacity:1}100%{transform:translate(-19%,-14%) scale(.72);opacity:0}}
+  #walkinsText{position:absolute;z-index:45;left:6.2%;top:13.9%;width:11.7%;height:17.8%;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#5a2a18;font-weight:900;line-height:1.2;pointer-events:none;text-shadow:0 1px #f2d7ad}
+  #walkinsOrder{font-size:clamp(9px,.78vw,16px)}
+  #walkinsTimer{font-size:clamp(11px,1vw,20px);margin-top:.28rem;color:#8d241b}
+  #moneyCollectText{position:absolute;z-index:45;left:79.35%;top:7.8%;width:8.6%;text-align:center;color:#7dff9c;font-weight:900;font-size:clamp(13px,1.15vw,23px);text-shadow:0 2px 4px #000;pointer-events:none}
+  #flash{position:absolute;z-index:90;left:50%;top:18%;transform:translateX(-50%);opacity:0;background:#11100eea;border:1px solid #45bd6d;border-radius:10px;padding:.6rem 1rem;color:#75ff9c;font-weight:900;transition:.25s;pointer-events:none}
+  #flash.show{opacity:1;top:20%}
+  #reset{position:absolute;right:2.4%;bottom:2.4%;z-index:80;border:1px solid #775332;border-radius:8px;background:#1a120d;color:#ead8b8;padding:.45rem .7rem;font-weight:800;cursor:pointer}
+</style>
+</head>
+<body>
+<div id="game">
+  <img id="background" class="layer" src="assets/main_background(1).png" alt="Jody's Pizza interior">
+  <img id="counterFront" class="layer" src="assets/counter_front.png" alt="Pizza counter">
+  <img id="walkinsTab" class="layer" src="assets/walkins_tab.png" alt="Walk-ins order tab">
+  <img id="moneyTab" class="layer" src="assets/money_collect_tab.png" alt="Money collection tab">
+  <div id="walkinsText" class="hidden"><div id="walkinsOrder">CHEESE PIZZA</div><div id="walkinsTimer">2:00</div></div>
+  <div id="moneyCollectText">$0.00</div>
+
+  <img id="customer" class="layer" src="assets/customer_vin_middle.png" alt="Customer">
+  <img id="orderBubble" class="layer hidden" src="assets/order_bubble_middle_queue.png" alt="Order bubble">
+  <img id="orderCheese" class="layer hidden" src="assets/order_cheese_middle_queue.png" alt="Cheese pizza order">
+
+  <img id="crust" class="layer hidden" src="assets/pizza_crust_counter.png" alt="Pizza crust">
+  <img id="spoon" class="layer hidden" src="assets/sauce_on_spoon_counter.png" alt="Sauce spoon">
+  <img id="sauced" class="layer hidden" src="assets/sauce_on_crust_counter.png" alt="Sauced crust">
+  <img id="cheeseLayer" class="layer hidden" src="assets/cheese_on_crust_counter.png" alt="Cheese">
+  <img id="rawPizza" class="layer hidden" src="assets/pizza_cheese_raw_counter.png" alt="Raw cheese pizza">
+  <img id="ovenOpen" class="layer hidden" src="assets/oven_top_door_open(1).png" alt="Open oven">
+  <img id="pizzaOvenOpen" class="layer hidden" src="assets/pizza_cheese_top_open.png" alt="Pizza in open oven">
+  <img id="pizzaOvenClosed" class="layer hidden" src="assets/pizza_cheese_top_closed.png" alt="Pizza baking">
+  <img id="finished" class="layer hidden" src="assets/cheese_pizza_finished.png" alt="Finished cheese pizza">
+  <img id="burnt" class="layer hidden" src="assets/burnt_pizza_finished.png" alt="Burnt pizza">
+  <img id="openBox" class="layer hidden" src="assets/pizza_box.png" alt="Open pizza box">
+  <img id="closedBox" class="layer hidden" src="assets/box_ready.png" alt="Closed pizza box">
+
+  <div id="hud"><div class="panel" id="status">STORE OPEN</div><div class="panel" id="timer">READY</div></div>
+  <div id="circleTimer" class="hidden"><div id="circleTimerText"></div></div>
+  <div id="message">A customer will enter shortly.<small>Complete the pizza and click the customer to finish the transaction.</small></div>
+  <button id="hotspot" class="hotspot hidden" data-label=""></button>
+  <button id="customerHotspot" class="hotspot hidden" aria-label="Customer"></button>
+  <button id="doughHotspot" class="hotspot" aria-label="Dough"></button>
+  <div id="flash">+$12.00</div>
+  <button id="reset">Reset</button>
+</div>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const customer=$('customer'), bubble=$('orderBubble'), orderCheese=$('orderCheese');
+  const hotspot=$('hotspot'), customerHotspot=$('customerHotspot'), doughHotspot=$('doughHotspot');
+  const timer=$('timer'), msg=$('message'), status=$('status'), flash=$('flash');
+  const walkinsText=$('walkinsText'), walkinsTimer=$('walkinsTimer'), moneyCollectText=$('moneyCollectText');
+  const circleTimer=$('circleTimer'), circleTimerText=$('circleTimerText');
+  const allFood=['crust','spoon','sauced','cheeseLayer','rawPizza','ovenOpen','pizzaOvenOpen','pizzaOvenClosed','finished','burnt','openBox','closedBox'];
+
+  let money=0, timerId=null, customerWaitId=null, arrivalId=null, orderDeadlineId=null, orderClockId=null;
+  let pizzaState='idle', customerPresent=false, orderActive=false, currentPizza='good';
+
+  const show=id=>$(id).classList.remove('hidden');
+  const hide=id=>$(id).classList.add('hidden');
+  const clearFood=()=>allFood.forEach(hide);
+  function setMessage(text,sub=''){msg.innerHTML=text+(sub?`<small>${sub}</small>`:'')}
+  function setHotspot(label,x,y,w,h,fn){
+    hotspot.dataset.label=label; Object.assign(hotspot.style,{left:x+'%',top:y+'%',width:w+'%',height:h+'%'});
+    hotspot.onclick=fn; hotspot.classList.remove('hidden');
+  }
+  function noHotspot(){hotspot.classList.add('hidden');hotspot.onclick=null}
+  function setCustomerHotspot(active){
+    Object.assign(customerHotspot.style,{left:'43%',top:'10%',width:'18%',height:'48%'});
+    customerHotspot.onclick=active?takeOrder:null;
+    customerHotspot.classList.toggle('hidden',!active);
+  }
+  function setDoughHotspot(active){
+    Object.assign(doughHotspot.style,{left:'21%',top:'45%',width:'17%',height:'17%'});
+    doughHotspot.onclick=active?beginDough:null;
+    doughHotspot.classList.toggle('hidden',!active);
+  }
+  function hideCircleTimer(){circleTimer.classList.add('hidden');circleTimer.style.background='';circleTimerText.textContent=''}
+  function placeCircleTimer(x,y){circleTimer.style.left=x+'%';circleTimer.style.top=y+'%';circleTimer.classList.remove('hidden')}
+  function updateCircleTimer(label,n,total){const pct=Math.max(0,Math.min(1,n/total));circleTimer.style.background=`conic-gradient(#f2c45c ${pct*360}deg,#2a1a11 0deg)`;circleTimerText.innerHTML=`${label}<br>${n}s`}
+  function clearPizzaTimer(){clearInterval(timerId);timerId=null;timer.textContent='READY';hideCircleTimer()}
+  function clearCustomerTimers(){clearTimeout(customerWaitId);clearTimeout(arrivalId);clearTimeout(orderDeadlineId);clearInterval(orderClockId);customerWaitId=arrivalId=orderDeadlineId=orderClockId=null}
+  function clearOrderPanel(){walkinsText.classList.add('hidden');walkinsTimer.textContent='2:00'}
+
+  function startOrderDeadline(){
+    clearTimeout(orderDeadlineId);clearInterval(orderClockId);
+    let remaining=120;walkinsText.classList.remove('hidden');walkinsTimer.textContent='2:00';
+    orderClockId=setInterval(()=>{
+      remaining--;const m=Math.floor(remaining/60),sec=String(remaining%60).padStart(2,'0');walkinsTimer.textContent=`${m}:${sec}`;
+      if(remaining<=0){clearInterval(orderClockId);orderClockId=null;}
+    },1000);
+    orderDeadlineId=setTimeout(()=>{
+      orderDeadlineId=null;if(!orderActive)return;
+      clearInterval(orderClockId);orderClockId=null;orderActive=false;clearOrderPanel();
+      customerPresent=false;setCustomerHotspot(false);customer.classList.add('out');status.textContent='CUSTOMER LEFT';
+      setMessage('The two-minute order timer expired.','Another customer will arrive in 5 seconds.');
+      setTimeout(()=>nextCustomer(5000),900);
+    },120000);
+  }
+  function finishOrderDeadline(){clearTimeout(orderDeadlineId);clearInterval(orderClockId);orderDeadlineId=orderClockId=null;clearOrderPanel()}
+  function countdown(seconds,label,x,y,done){
+    noHotspot(); let n=seconds; const total=seconds; timer.textContent=`${label} ${n}s`;placeCircleTimer(x,y);updateCircleTimer(label,n,total);
+    timerId=setInterval(()=>{n--;timer.textContent=n>0?`${label} ${n}s`:'DONE';updateCircleTimer(label,Math.max(n,0),total);if(n<=0){clearInterval(timerId);timerId=null;setTimeout(()=>{hideCircleTimer();done()},200)}},1000)
+  }
+
+  function nextCustomer(delay=5000){
+    clearTimeout(arrivalId);clearTimeout(customerWaitId);customerWaitId=null;
+    bubble.classList.add('hidden');orderCheese.classList.add('hidden');clearOrderPanel();orderActive=false;
+    customerPresent=false;setCustomerHotspot(false);customer.className='layer';
+    status.textContent=pizzaState==='idle'?'WAITING FOR CUSTOMER':'PIZZA IN PROGRESS';
+    setMessage(`Next customer arrives in ${Math.round(delay/1000)} seconds.`,pizzaState==='idle'?'You can start making a pizza now.':'Keep working while you wait.');
+    arrivalId=setTimeout(()=>{
+      arrivalId=null;customerPresent=true;customer.classList.add('in');status.textContent='CUSTOMER ENTERED';
+      setMessage('A customer walks in.','Click them once to take the order.');setCustomerHotspot(true);
+      customerWaitId=setTimeout(customerLeaves,8000);
+    },delay);
+  }
+  function customerLeaves(){
+    customerWaitId=null;if(!customerPresent||orderActive)return;
+    customerPresent=false;setCustomerHotspot(false);customer.classList.add('out');status.textContent='CUSTOMER LEFT';
+    setMessage('The customer left without ordering.','Another customer will arrive in 5 seconds.');
+    setTimeout(()=>nextCustomer(5000),1000);
+  }
+  function takeOrder(){
+    if(!customerPresent||orderActive)return;
+    clearTimeout(customerWaitId);customerWaitId=null;setCustomerHotspot(false);orderActive=true;
+    show('orderBubble');show('orderCheese');status.textContent='CHEESE PIZZA ORDER';startOrderDeadline();
+    setMessage('Cheese pizza order received.','No second customer click needed. Finish the pizza before the timer expires.');
+    setTimeout(()=>{hide('orderBubble');hide('orderCheese')},1100);
+    if(pizzaState==='idle') setDoughHotspot(true);
+  }
+
+  function beginDough(){
+    if(pizzaState!=='idle')return;
+    pizzaState='dough';setDoughHotspot(false);status.textContent='BUILDING PIZZA';
+    setMessage('Dough started.','6 seconds');
+    countdown(6,'DOUGH',25.5,51.5,()=>{show('crust');pizzaState='sauce';setMessage('The crust is ready.','Click the sauce pan.');setHotspot('SAUCE',31,44,17,18,startSauce)});
+  }
+  function startSauce(){
+    if(pizzaState!=='sauce')return;
+    show('spoon');$('spoon').classList.add('saucing');setMessage('Sauce is being spread.','5 seconds');
+    countdown(5,'SAUCE',35.5,51.5,()=>{$('spoon').classList.remove('saucing');hide('spoon');show('sauced');pizzaState='cheese';setMessage('Add cheese.','Click the cheese pan.');setHotspot('CHEESE',41,44,17,18,startCheese)});
+  }
+  function startCheese(){
+    if(pizzaState!=='cheese')return;
+    show('cheeseLayer');setMessage('Cheese is being added.','4 seconds');
+    countdown(4,'CHEESE',45.5,51.5,()=>{hide('crust');hide('sauced');hide('cheeseLayer');show('rawPizza');pizzaState='ovenOpen';setMessage('The pizza is ready for the oven.','Click the top oven door.');setHotspot('OPEN OVEN',69,43,15,19,openOven)});
+  }
+  function openOven(){
+    if(pizzaState!=='ovenOpen')return;
+    show('ovenOpen');pizzaState='insert';setMessage('The top oven is open.','Click the raw pizza to place it inside.');setHotspot('PIZZA IN',48,46,22,20,insertPizza);
+  }
+  function insertPizza(){
+    if(pizzaState!=='insert')return;
+    hide('rawPizza');show('pizzaOvenOpen');pizzaState='closeOven';setMessage('Pizza is inside the oven.','Click the oven door to close it and begin baking.');setHotspot('CLOSE OVEN',69,43,15,19,bakePizza);
+  }
+  function bakePizza(){
+    if(pizzaState!=='closeOven')return;
+    hide('ovenOpen');hide('pizzaOvenOpen');show('pizzaOvenClosed');currentPizza='good';pizzaState='baking';status.textContent='BAKING';countdown(30,'BAKE',75.5,54.5,pizzaReady);
+  }
+  function pizzaReady(){
+    pizzaState='ready';show('openBox');timer.textContent='COLLECT 10s';status.textContent='PIZZA READY';
+    setMessage('The pizza is ready!','Click the oven within 10 seconds or it will burn.');
+    let n=10,total=10;placeCircleTimer(75.5,54.5);updateCircleTimer('READY',n,total);
+    timerId=setInterval(()=>{n--;timer.textContent=`COLLECT ${n}s`;updateCircleTimer('READY',Math.max(n,0),total);if(n<=0){clearInterval(timerId);timerId=null;hideCircleTimer();burnPizza()}},1000);
+    setHotspot('COLLECT PIZZA',69,43,15,19,collectGoodPizza);
+  }
+  function collectGoodPizza(){
+    if(pizzaState!=='ready')return;
+    clearPizzaTimer();noHotspot();currentPizza='good';hide('pizzaOvenClosed');show('finished');$('finished').classList.add('toBox');pizzaState='boxing';status.textContent='BOXING PIZZA';
+    setMessage('Perfect timing. The pizza is cooked.','It is sliding into the open box.');
+    setTimeout(()=>{
+      $('finished').classList.remove('toBox');setMessage('Pizza is in the box.','Closing in 2 seconds.');
+      setTimeout(()=>{hide('finished');hide('openBox');show('closedBox');pizzaState='boxed';status.textContent='ORDER READY';setMessage('Order boxed.',orderActive?'Click the closed box to serve it.':'The pizza is ready. Wait for an order before serving.');setHotspot('SERVE ORDER',66,28,22,28,deliverOrder)},2000);
+    },800);
+  }
+  function burnPizza(){
+    noHotspot();currentPizza='burnt';hide('pizzaOvenClosed');hide('openBox');show('burnt');pizzaState='burnt';status.textContent='BURNT PIZZA';timer.textContent='BURNT';
+    setMessage('Too late. The pizza burned.','Click the burnt pizza to discard it and start again.');
+    setHotspot('DISCARD',50,48,23,18,()=>{clearFood();timer.textContent='READY';pizzaState='idle';noHotspot();setDoughHotspot(true);setMessage('Burnt pizza discarded.','Dough is available again.')});
+  }
+  function deliverOrder(){
+    if(pizzaState!=='boxed')return;
+    if(!orderActive||!customerPresent){setMessage('The pizza is boxed and ready.','Take a customer order before serving it.');return;}
+    noHotspot();pizzaState='delivering';$('closedBox').classList.add('delivering');
+    setTimeout(()=>{hide('closedBox');$('closedBox').classList.remove('delivering');completeOrder()},1150);
+  }
+  function completeOrder(){
+    finishOrderDeadline();orderActive=false;money+=12;moneyCollectText.textContent='$'+money.toFixed(2);flash.classList.add('show');setTimeout(()=>flash.classList.remove('show'),1200);
+    pizzaState='idle';clearFood();setDoughHotspot(true);status.textContent='ORDER COMPLETE';timer.textContent='READY';
+    setMessage('Order complete. $12.00 added.','The customer is leaving. Another arrives in 5 seconds.');
+    customerPresent=false;customer.classList.add('out');setTimeout(()=>nextCustomer(5000),1000);
+  }
+
+  $('reset').onclick=()=>{
+    clearPizzaTimer();clearCustomerTimers();money=0;moneyCollectText.textContent='$0.00';customer.className='layer';customerPresent=false;orderActive=false;pizzaState='idle';clearFood();clearOrderPanel();noHotspot();setCustomerHotspot(false);setDoughHotspot(true);nextCustomer(1000);
+  };
+
+  setDoughHotspot(true);
+  nextCustomer(1000);
+})();
+</script>
+</body>
+</html>
